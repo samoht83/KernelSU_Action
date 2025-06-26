@@ -15,7 +15,7 @@ jobs:
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Prepare Configuration
       run: |
         CONFIG_ENV=$(cat config.env | grep -w "CONFIG_ENV" | head -n 1 | cut -d "=" -f 2)
