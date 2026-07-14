@@ -66,8 +66,9 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           
-          # Set Cross Compilation Flags
-          export CC=clang
+          # Tell the kernel Makefile to use Clang (it checks LLVM to decide CC=clang vs CC=$(CROSS_COMPILE)gcc)
+          export LLVM=1
+          export LLVM_IAS=1
           export CLANG_TRIPLE=aarch64-linux-gnu-
           export CROSS_COMPILE=aarch64-linux-android-
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
