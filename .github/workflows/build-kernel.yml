@@ -21,9 +21,17 @@ jobs:
         run: |
           cd kernel-source
           # KernelSU 1.0+ is GKI-only; the holi/SM4350 kernel is non-GKI (~4.19),
-          # so pin to the last non-GKI-supporting release (v0.9.5). The setup script
-          # symlinks KernelSU into drivers/ and patches drivers/Makefile + Kconfig.
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s -- v0.9.5
+          # so pin to the last non-GKI-supporting release (v0.9.5).
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s -- v0.9.5 || true
+
+          # Fallback: if the setup script failed silently, manually clone + symlink
+          if [ ! -d drivers/kernelsu ]; then
+            echo "[!] Setup script failed, patching KernelSU manually..."
+            git clone --depth=1 --branch v0.9.5 https://github.com/tiann/KernelSU.git KernelSU
+            ln -sf "$(realpath KernelSU/kernel)" drivers/kernelsu
+            grep -q "kernelsu" drivers/Makefile || printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
+            grep -q 'source "drivers/kernelsu/Kconfig"' drivers/Kconfig || sed -i '/endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+          fi
 
           # Enable KernelSU + the kprobe backend it relies on for non-GKI kernels.
           # Appended (not inserted) so these override any earlier values in the defconfig.
