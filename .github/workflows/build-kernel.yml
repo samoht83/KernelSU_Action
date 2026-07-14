@@ -81,6 +81,9 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-android-
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
           
+          # Fix Clang error: const mismatch between declaration and definition
+          sed -i 's/^struct mcs_group minstrel_mcs_groups\[\]/const struct mcs_group minstrel_mcs_groups[]/' net/mac80211/rc80211_minstrel_ht.c
+          
           # Generate the baseline hardware config configuration
           make O=out n200_defconfig
           
