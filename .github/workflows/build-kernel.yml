@@ -1,0 +1,90 @@
+name: OnePlus Nord N200 Kernel Compiler
+
+on:
+  workflow_dispatch: # Allows you to manually trigger the build from the GitHub UI
+
+jobs:
+  compile-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: System Pre-flight & Dependency Setup
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev lib32stdc++6 libelf-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3
+
+      - name: Fetch Kernel Source Tree
+        run: |
+          git clone --depth=1 https://github.com/tangalbert919/android_kernel_oneplus_sm4350.git -b lineage-20 kernel-source
+          
+      - name: Patch KernelSU into Kernel Source
+        run: |
+          cd kernel-source
+          # KernelSU 1.0+ is GKI-only; the holi/SM4350 kernel is non-GKI (~4.19),
+          # so pin to the last non-GKI-supporting release (v0.9.5). The setup script
+          # symlinks KernelSU into drivers/ and patches drivers/Makefile + Kconfig.
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s -- v0.9.5
+
+          # Enable KernelSU + the kprobe backend it relies on for non-GKI kernels.
+          # Appended (not inserted) so these override any earlier values in the defconfig.
+          {
+            echo ""
+            echo "# KernelSU (non-GKI, pinned to v0.9.5)"
+            echo "CONFIG_KSU=y"
+            echo "CONFIG_KPROBES=y"
+            echo "CONFIG_HAVE_KPROBES=y"
+            echo "CONFIG_KPROBE_EVENTS=y"
+            echo "CONFIG_MODULES=y"
+          } >> arch/arm64/configs/vendor/holi-perf_defconfig
+
+      - name: Fetch Proton Clang Toolchain
+        run: |
+          mkdir proton-clang
+          cd proton-clang
+          # Standard Proton Clang (kdrag0n) — LLVM/Clang 13.0.0 + binutils 2.36.1.
+          # The committed prebuilt lives in the git repo/tag, so clone it.
+          git clone --depth=1 --branch 20210522 https://github.com/kdrag0n/proton-clang.git .
+
+      - name: Fetch AOSP GCC Binaries (For Legacy Gas Assembler)
+        run: |
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b master gcc64
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 -b master gcc32
+
+      - name: Execute Kernel Compilation Pipeline
+        run: |
+          cd kernel-source
+          
+          # Setup Build Environment Path Variables
+          export PATH="$GITHUB_WORKSPACE/proton-clang/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH"
+          
+          # Declare Target Architectures
+          export ARCH=arm64
+          export SUBARCH=arm64
+          
+          # Set Cross Compilation Flags
+          export CC=clang
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-android-
+          export CROSS_COMPILE_ARM32=arm-linux-androideabi-
+          
+          # Generate the baseline hardware config configuration
+          # Note: vendor/holi-perf_defconfig or vendor/dre_defconfig are standard targets
+          make O=out vendor/holi-perf_defconfig
+          
+          # Launch full CPU core parallel compiling compilation
+          make -j$(nproc --all) O=out
+
+      - name: Verify and Package Build Artifacts
+        run: |
+          mkdir -p output
+          if [ -f kernel-source/out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp kernel-source/out/arch/arm64/boot/Image.gz-dtb output/
+          elif [ -f kernel-source/out/arch/arm64/boot/Image ]; then
+            cp kernel-source/out/arch/arm64/boot/Image output/
+          fi
+          
+      - name: Upload Finished Kernel Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nord-N200-Kernel-Image
+          path: output/*
