@@ -87,21 +87,33 @@ EOF
           fi
 
           # ----- Fix 2: KernelSU hook undefined references -----
-          # Ensure drivers/kernelsu/Makefile compiles all the core hook files.
-          # v0.9.5 sometimes omits core_hook.o on certain kernel trees.
-          if [ -f drivers/kernelsu/Makefile ]; then
-            for obj in core_hook ksu manager allowlist; do
-              if ! grep -q "${obj}.o" drivers/kernelsu/Makefile; then
-                echo "Adding obj-y += ${obj}.o to drivers/kernelsu/Makefile"
-                echo "obj-y += ${obj}.o" >> drivers/kernelsu/Makefile
-              fi
-            done
-          fi
+          # The kernel source (samoht83/lineage-22.2) is pre-patched for a newer
+          # KernelSU API that v0.9.5 does not provide.  We define the missing
+          # symbols (3 bool guards + 2 handler functions) as stubs here.
+          cat > drivers/kernelsu/ksu_compat_stubs.c << 'EOF'
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/types.h>
 
-          # Also add -fno-pic to KernelSU compilation flags to avoid PIE/relocation
-          # mismatches with the GCC linker at final vmlinux link stage.
-          if ! grep -q "ccflags-y" drivers/kernelsu/Makefile; then
-            echo "ccflags-y += -fno-pic" >> drivers/kernelsu/Makefile
+bool ksu_vfs_read_hook __read_mostly = false;
+bool ksu_execveat_hook __read_mostly = false;
+bool ksu_input_hook __read_mostly = false;
+
+int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
+			size_t *count_ptr, loff_t **pos)
+{
+	return 0;
+}
+
+int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
+				  int *value)
+{
+	return 0;
+}
+EOF
+          # Append the stub to kernelsu-objs so it gets linked
+          if grep -q "kernelsu-objs" drivers/kernelsu/Makefile; then
+            sed -i '/^kernelsu-objs/i kernelsu-objs += ksu_compat_stubs.o' drivers/kernelsu/Makefile
           fi
 
           # ----- Fix 3: rc80211_minstrel_exit -----
