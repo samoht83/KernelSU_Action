@@ -61,9 +61,6 @@ jobs:
           fi
           echo "Patching defconfig: $DEFCONFIG"
 
-          # Save defconfig name for use in later steps (steps run in separate shells)
-          echo "$DEFCONFIG_NAME" > /tmp/defconfig_name
-
           # Enable KernelSU + kprobe backend + suppress -Werror
           {
             echo ""
@@ -75,6 +72,9 @@ jobs:
             echo "CONFIG_MODULES=y"
             echo "CONFIG_CC_WERROR=n"
           } >> "$DEFCONFIG"
+
+          # Save defconfig name for use in later steps (steps run in separate shells)
+          echo "$DEFCONFIG_NAME" > /github/workflow/defconfig_name
 
       - name: Apply Build Fixes
         run: |
@@ -172,7 +172,18 @@ jobs:
           export USE_CCACHE=1
 
           # Use the same defconfig that was patched in the previous step
-          DEFCONFIG_NAME=$(cat /tmp/defconfig_name)
+          if [ -f /github/workflow/defconfig_name ]; then
+            DEFCONFIG_NAME=$(cat /github/workflow/defconfig_name)
+          else
+            # Fallback: detect defconfig
+            if [ -f arch/arm64/configs/n200_defconfig ]; then
+              DEFCONFIG_NAME=n200_defconfig
+            elif [ -f arch/arm64/configs/vendor/n200_defconfig ]; then
+              DEFCONFIG_NAME=vendor/n200_defconfig
+            else
+              DEFCONFIG_NAME=vendor/holi-perf_defconfig
+            fi
+          fi
           DEFCONFIG=$DEFCONFIG_NAME
           echo "Using defconfig: $DEFCONFIG"
 
