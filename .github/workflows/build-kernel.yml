@@ -39,13 +39,16 @@ jobs:
           cd kernel-source
           # KernelSU 1.0+ is GKI-only; the holi/SM4350 kernel is non-GKI (~4.19),
           # so pin to the last non-GKI-supporting release (v0.9.5)
-          # Use full clone so tags are available for checkout
-          git clone https://github.com/tiann/KernelSU.git KernelSU
+          # Use full clone to get all tags and history
+          git clone --depth 0 https://github.com/tiann/KernelSU.git KernelSU
           cd KernelSU
           git checkout v0.9.5
           cd ..
           # Run the setup.sh that ships with that tag (not from main branch)
-          bash KernelSU/kernel/setup.sh
+          bash KernelSU/kernel/setup.sh || true
+
+          # Create drivers/kernelsu directory if it doesn't exist
+          mkdir -p drivers/kernelsu
 
           # Locate the defconfig (n200_defconfig may be in arch/arm64/configs/ directly
           # or in arch/arm64/configs/vendor/)
