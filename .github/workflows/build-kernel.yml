@@ -74,7 +74,7 @@ jobs:
           } >> "$DEFCONFIG"
 
           # Save defconfig name for use in later steps (steps run in separate shells)
-          echo "$DEFCONFIG_NAME" > /github/workflow/defconfig_name
+          echo "$DEFCONFIG_NAME" > kernel-source/defconfig_name
 
       - name: Apply Build Fixes
         run: |
@@ -172,8 +172,8 @@ jobs:
           export USE_CCACHE=1
 
           # Use the same defconfig that was patched in the previous step
-          if [ -f /github/workflow/defconfig_name ]; then
-            DEFCONFIG_NAME=$(cat /github/workflow/defconfig_name)
+          if [ -f kernel-source/defconfig_name ]; then
+            DEFCONFIG_NAME=$(cat kernel-source/defconfig_name)
           else
             # Fallback: detect defconfig
             if [ -f arch/arm64/configs/n200_defconfig ]; then
