@@ -61,6 +61,9 @@ jobs:
           fi
           echo "Patching defconfig: $DEFCONFIG"
 
+          # Save defconfig name for use in later steps (steps run in separate shells)
+          echo "$DEFCONFIG_NAME" > /tmp/defconfig_name
+
           # Enable KernelSU + kprobe backend + suppress -Werror
           {
             echo ""
@@ -169,6 +172,7 @@ jobs:
           export USE_CCACHE=1
 
           # Use the same defconfig that was patched in the previous step
+          DEFCONFIG_NAME=$(cat /tmp/defconfig_name)
           DEFCONFIG=$DEFCONFIG_NAME
           echo "Using defconfig: $DEFCONFIG"
 
