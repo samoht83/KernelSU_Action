@@ -51,10 +51,13 @@ jobs:
           # or in arch/arm64/configs/vendor/)
           if [ -f arch/arm64/configs/n200_defconfig ]; then
             DEFCONFIG=arch/arm64/configs/n200_defconfig
+            DEFCONFIG_NAME=n200_defconfig
           elif [ -f arch/arm64/configs/vendor/n200_defconfig ]; then
             DEFCONFIG=arch/arm64/configs/vendor/n200_defconfig
+            DEFCONFIG_NAME=vendor/n200_defconfig
           else
             DEFCONFIG=arch/arm64/configs/vendor/holi-perf_defconfig
+            DEFCONFIG_NAME=vendor/holi-perf_defconfig
           fi
           echo "Patching defconfig: $DEFCONFIG"
 
@@ -85,7 +88,8 @@ jobs:
                 sed -i 's|// #define CREATE_TRACE_POINTS|#define CREATE_TRACE_POINTS|' kernel/sched/walt/trace.c
                 sed -i 's|// #include "trace.h"|#include "trace.h"|' kernel/sched/walt/trace.c
               else
-                sed -i '1i#define CREATE_TRACE_POINTS\n#include "trace.h"' kernel/sched/walt/trace.c
+                sed -i '1i#define CREATE_TRACE_POINTS' kernel/sched/walt/trace.c
+                sed -i '2i#include "trace.h"' kernel/sched/walt/trace.c
               fi
             fi
           else
@@ -126,7 +130,9 @@ jobs:
 
           # Append the stub to kernelsu-objs so it gets linked
           if grep -q "kernelsu-objs" drivers/kernelsu/Makefile; then
-            echo "kernelsu-objs += ksu_compat_stubs.o" >> drivers/kernelsu/Makefile
+            if ! grep -q "ksu_compat_stubs.o" drivers/kernelsu/Makefile; then
+              echo "kernelsu-objs += ksu_compat_stubs.o" >> drivers/kernelsu/Makefile
+            fi
           fi
 
           # ----- Fix 3: rc80211_minstrel_exit -----
@@ -162,17 +168,8 @@ jobs:
           export CCACHE_COMPILERCHECK=content
           export USE_CCACHE=1
 
-          # Detect defconfig (allow fallback)
-          if [ -f arch/arm64/configs/n200_defconfig ]; then
-            DEFCONFIG=n200_defconfig
-          elif [ -f arch/arm64/configs/vendor/n200_defconfig ]; then
-            DEFCONFIG=vendor/n200_defconfig
-          elif [ -f arch/arm64/configs/vendor/holi-perf_defconfig ]; then
-            DEFCONFIG=vendor/holi-perf_defconfig
-          else
-            echo "ERROR: no defconfig found" >&2
-            exit 1
-          fi
+          # Use the same defconfig that was patched in the previous step
+          DEFCONFIG=$DEFCONFIG_NAME
           echo "Using defconfig: $DEFCONFIG"
 
           make O=out "$DEFCONFIG"
